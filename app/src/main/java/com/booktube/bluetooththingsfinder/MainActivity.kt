@@ -95,7 +95,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         directionIndicator.start()
-        startContinuousScan()
+        checkPermissionsAndStartScan()
     }
     
     override fun onPause() {
@@ -105,11 +105,19 @@ class MainActivity : ComponentActivity() {
     }
     
     private fun checkPermissionsAndStartScan() {
-        val permissions = arrayOf(
-            Manifest.permission.BLUETOOTH_SCAN,
-            Manifest.permission.BLUETOOTH_CONNECT,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        )
+        val permissions = mutableListOf<String>()
+        
+        // Add Bluetooth permissions based on API level
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            permissions.add(Manifest.permission.BLUETOOTH_SCAN)
+            permissions.add(Manifest.permission.BLUETOOTH_CONNECT)
+        } else {
+            permissions.add(Manifest.permission.BLUETOOTH)
+            permissions.add(Manifest.permission.BLUETOOTH_ADMIN)
+        }
+        
+        // Always add location permission
+        permissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
         
         val permissionsToRequest = permissions.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
@@ -124,6 +132,14 @@ class MainActivity : ComponentActivity() {
     
     private fun startContinuousScan() {
         if (!bluetoothAdapter.isEnabled) {
+            // Check if we have BLUETOOTH_CONNECT permission before requesting to enable
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                    Toast.makeText(this, "Bluetooth permissions required", Toast.LENGTH_LONG).show()
+                    return
+                }
+            }
+            
             val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
             enableBluetoothLauncher.launch(enableBtIntent)
             return
@@ -440,11 +456,39 @@ fun DeviceItem(
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(
-                        text = deviceName,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 16.sp
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = deviceName,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 16.sp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        // Device type tag
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (device.deviceType == DeviceType.BLE) {
+                                    MaterialTheme.colorScheme.primaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.secondaryContainer
+                                }
+                            ),
+                            modifier = Modifier.padding(0.dp)
+                        ) {
+                            Text(
+                                text = device.deviceType.shortName,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (device.deviceType == DeviceType.BLE) {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.onSecondaryContainer
+                                },
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                     Text(
                         text = device.address,
                         color = Color.Gray,
