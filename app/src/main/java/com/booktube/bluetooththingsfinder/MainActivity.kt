@@ -40,6 +40,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.booktube.bluetooththingsfinder.ui.theme.BluetoothThingsFinderTheme
 import androidx.compose.foundation.clickable
+import android.util.Log
 
 class MainActivity : ComponentActivity() {
     private lateinit var bluetoothAdapter: BluetoothAdapter
@@ -72,8 +73,8 @@ class MainActivity : ComponentActivity() {
         
         val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         bluetoothAdapter = bluetoothManager.adapter
-        bluetoothScanner = BluetoothScanner(this, bluetoothAdapter)
         directionIndicator = DirectionIndicator(this)
+        bluetoothScanner = BluetoothScanner(this, bluetoothAdapter, directionIndicator)
         
         setContent {
             BluetoothThingsFinderTheme {
@@ -85,7 +86,8 @@ class MainActivity : ComponentActivity() {
                         bluetoothScanner = bluetoothScanner,
                         directionIndicator = directionIndicator,
                         onStartScan = { checkPermissionsAndStartScan() },
-                        onStopScan = { bluetoothScanner.stopScan() }
+                        onStopScan = { bluetoothScanner.stopScan() },
+                        onRefreshScan = { bluetoothScanner.refreshScan() }
                     )
                 }
             }
@@ -154,7 +156,8 @@ fun MainScreen(
     bluetoothScanner: BluetoothScanner,
     directionIndicator: DirectionIndicator,
     onStartScan: () -> Unit,
-    onStopScan: () -> Unit
+    onStopScan: () -> Unit,
+    onRefreshScan: () -> Unit
 ) {
     val devices by bluetoothScanner.devices.collectAsState()
     val isScanning by bluetoothScanner.isScanning.collectAsState()
@@ -233,7 +236,8 @@ fun MainScreen(
                 isScanning = isScanning,
                 directionIndicator = directionIndicator,
                 bluetoothScanner = bluetoothScanner,
-                onDeviceClick = { device -> selectedDevice = device }
+                onDeviceClick = { device -> selectedDevice = device },
+                onRefreshScan = onRefreshScan
             )
             1 -> FavoritesTab(
                 bluetoothScanner = bluetoothScanner,
@@ -259,30 +263,39 @@ fun NearbyDevicesTab(
     isScanning: Boolean,
     directionIndicator: DirectionIndicator,
     bluetoothScanner: BluetoothScanner? = null,
-    onDeviceClick: (BluetoothDevice) -> Unit
+    onDeviceClick: (BluetoothDevice) -> Unit,
+    onRefreshScan: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
-        // Refresh button
-        if (!isScanning && devices.isNotEmpty()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.End
+        // Refresh button - show when devices exist or when not scanning
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.End
+        ) {
+            Button(
+                onClick = {
+                    Log.d("MainActivity", "Refresh button clicked")
+                    onRefreshScan()
+                },
+                enabled = !isScanning,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isScanning) 
+                        MaterialTheme.colorScheme.surfaceVariant 
+                    else 
+                        MaterialTheme.colorScheme.primary
+                )
             ) {
-                TextButton(
-                    onClick = { bluetoothScanner?.startScan() }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Refresh")
-                }
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(if (isScanning) "Scanning..." else "Refresh Scan")
             }
         }
         
@@ -567,20 +580,34 @@ fun DeviceItem(
                 )
             }
             
-            // Direction indicator
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = directionArrow,
-                    fontSize = 20.sp,
-                    modifier = Modifier.padding(end = 8.dp)
-                )
-                Text(
-                    text = directionText,
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.secondary
-                )
+            // Direction indicator with enhanced guidance
+            Column {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = directionArrow,
+                        fontSize = 20.sp,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                    Text(
+                        text = directionText,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                }
+                
+                // Enhanced directional guidance
+                val directionalGuidance = directionIndicator.getDirectionalGuidance(device.address, device.rssi)
+                if (directionalGuidance != "🔄 Move around to determine direction") {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = directionalGuidance,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
             
             // Last seen information

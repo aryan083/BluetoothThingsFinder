@@ -25,6 +25,15 @@ class DirectionIndicator(context: Context) : SensorEventListener {
     private var accelerometerSet = false
     private var magnetometerSet = false
     
+    // Store RSSI readings with timestamps for direction estimation
+    private val deviceReadings = mutableMapOf<String, MutableList<RssiReading>>()
+    
+    data class RssiReading(
+        val rssi: Int,
+        val timestamp: Long,
+        val phoneDirection: Float
+    )
+    
     fun start() {
         accelerometer?.let { sensor ->
             sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_NORMAL)
@@ -73,14 +82,58 @@ class DirectionIndicator(context: Context) : SensorEventListener {
         }
     }
     
+    fun addRssiReading(deviceAddress: String, rssi: Int) {
+        val currentTime = System.currentTimeMillis()
+        val currentPhoneDirection = _currentDirection.value
+        
+        val readings = deviceReadings.getOrPut(deviceAddress) { mutableListOf() }
+        readings.add(RssiReading(rssi, currentTime, currentPhoneDirection))
+        
+        // Keep only recent readings (last 30 seconds)
+        readings.removeAll { currentTime - it.timestamp > 30000 }
+        
+        // Keep maximum 20 readings per device
+        if (readings.size > 20) {
+            readings.removeAt(0)
+        }
+    }
+    
     fun getDirectionToDevice(deviceRssi: Int): Direction {
-        // Simple direction estimation based on RSSI
-        // In a real app, you'd use triangulation with multiple readings
         return when {
             deviceRssi >= -50 -> Direction.VERY_CLOSE
             deviceRssi >= -70 -> Direction.CLOSE
             deviceRssi >= -90 -> Direction.MEDIUM
             else -> Direction.FAR
+        }
+    }
+    
+    fun getEstimatedDeviceDirection(deviceAddress: String): Float? {
+        val readings = deviceReadings[deviceAddress] ?: return null
+        if (readings.size < 3) return null
+        
+        // Find the direction where we got the strongest signal
+        val strongestReading = readings.maxByOrNull { it.rssi }
+        return strongestReading?.phoneDirection
+    }
+    
+    fun getDirectionalGuidance(deviceAddress: String, currentRssi: Int): String {
+        val estimatedDirection = getEstimatedDeviceDirection(deviceAddress)
+        val currentPhoneDirection = _currentDirection.value
+        
+        return if (estimatedDirection != null) {
+            val angleDifference = ((estimatedDirection - currentPhoneDirection + 360) % 360)
+            when {
+                angleDifference < 30 || angleDifference > 330 -> "📍 Device is straight ahead"
+                angleDifference in 30f..60f || angleDifference in 300f..330f -> "↗️ Device is slightly to the right"
+                angleDifference in 60f..120f -> "➡️ Device is to the right"
+                angleDifference in 120f..150f -> "↘️ Device is behind and to the right"
+                angleDifference in 150f..210f -> "⬇️ Device is behind you"
+                angleDifference in 210f..240f -> "↙️ Device is behind and to the left"
+                angleDifference in 240f..300f -> "⬅️ Device is to the left"
+                else -> "↖️ Device is slightly to the left"
+            }
+        } else {
+            "🔄 Move around to determine direction"
         }
     }
     

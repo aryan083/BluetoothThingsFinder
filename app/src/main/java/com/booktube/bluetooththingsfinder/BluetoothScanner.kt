@@ -19,7 +19,8 @@ import kotlinx.coroutines.flow.asStateFlow
 
 class BluetoothScanner(
     private val context: Context,
-    private val bluetoothAdapter: BluetoothAdapter
+    private val bluetoothAdapter: BluetoothAdapter,
+    private val directionIndicator: DirectionIndicator? = null
 ) {
     private val _devices = MutableStateFlow<List<BluetoothDevice>>(emptyList())
     val devices: StateFlow<List<BluetoothDevice>> = _devices.asStateFlow()
@@ -78,6 +79,9 @@ class BluetoothScanner(
     
     // Helper function to add devices to the list and handle common logic
     private fun addDeviceToList(device: BluetoothDevice) {
+        // Add RSSI reading to direction indicator for direction estimation
+        directionIndicator?.addRssiReading(device.address, device.rssi)
+        
         // Save to history
         deviceStorage.addToHistory(device)
         
@@ -250,6 +254,22 @@ class BluetoothScanner(
     
     fun clearDevices() {
         _devices.value = emptyList()
+    }
+    
+    fun refreshScan() {
+        Log.d("BluetoothScanner", "Refresh scan requested")
+        
+        // Clear current devices
+        _devices.value = emptyList()
+        
+        // Stop current scan
+        stopScan()
+        
+        // Wait a moment then restart
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            Log.d("BluetoothScanner", "Starting refresh scan")
+            startContinuousScan()
+        }, 1000) // Increased delay to 1 second
     }
     
     fun getFavoriteDevices(): List<BluetoothDevice> {
