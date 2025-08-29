@@ -2,25 +2,51 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- ========== PERMISSIONS ========== -->
+    
     <!-- Bluetooth permissions -->
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    
+    <!-- Required for Android 12+ -->
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" 
-        android:usesPermissionFlags="neverForLocation" />
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"
+        tools:targetApi="s" />
     
-    <!-- Location permissions for finding devices -->
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Location permissions for BLE scanning on Android 10 and below -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"
+        android:maxSdkVersion="30" />
     
-    <!-- Vibration permission for feedback -->
+    <!-- For Android 12+ (already declared above) -->
+    
+    <!-- For vibration feedback -->
     <uses-permission android:name="android.permission.VIBRATE" />
     
-    <!-- Feature declarations -->
-    <uses-feature android:name="android.hardware.bluetooth" android:required="true" />
-    <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
+    <!-- For foreground service (if needed for background scanning) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    
+    <!-- For Android 10+ to get Bluetooth state changes in background -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"
+        android:maxSdkVersion="29" />
+    
+    <!-- ========== FEATURE DECLARATIONS ========== -->
+    
+    <!-- Required Bluetooth features -->
+    <uses-feature
+        android:name="android.hardware.bluetooth"
+        android:required="true" />
+    <uses-feature
+        android:name="android.hardware.bluetooth_le"
+        android:required="true" />
+        
+    <!-- Indicate that the app uses Bluetooth Low Energy (BLE) (already declared above) -->
 
     <application
+        android:name=".BluetoothFinderApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -28,12 +54,15 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.BluetoothThingsFinder">
+        android:theme="@style/Theme.BluetoothThingsFinder"
+        android:usesCleartextTraffic="true"
+        tools:targetApi="31">
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.BluetoothThingsFinder">
+            android:theme="@style/Theme.BluetoothThingsFinder.Splash"
+            android:windowSoftInputMode="adjustResize|stateHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

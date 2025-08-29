@@ -1,6 +1,7 @@
 package com.booktube.bluetooththingsfinder
 
 import android.bluetooth.BluetoothAdapter
+import com.booktube.bluetooththingsfinder.model.DeviceType
 import android.bluetooth.BluetoothDevice as AndroidBluetoothDevice
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
@@ -128,7 +129,7 @@ class BluetoothScanner(
         currentDevices.sortByDescending { it.rssi }
         _devices.value = currentDevices
         
-        Log.d("BluetoothScanner", "Found ${device.deviceType.shortName} device: ${device.name} (${device.address}) RSSI: ${device.rssi}")
+        Log.d("BluetoothScanner", "Found ${device.deviceType.name} device: ${device.name} (${device.address}) RSSI: ${device.rssi}")
     }
     
     fun startScan() {
@@ -293,5 +294,22 @@ class BluetoothScanner(
     
     fun getDeviceHistory(): List<BluetoothDevice> {
         return deviceStorage.getDeviceHistory()
+    }
+    
+    fun onDestroy() {
+        try {
+            // Stop any ongoing scans
+            stopScan()
+            
+            // Clear any pending callbacks
+            android.os.Handler(android.os.Looper.getMainLooper()).removeCallbacksAndMessages(null)
+            
+            // Clear the device list
+            _devices.value = emptyList()
+            
+            Log.d("BluetoothScanner", "BluetoothScanner resources cleaned up")
+        } catch (e: Exception) {
+            Log.e("BluetoothScanner", "Error during cleanup: ${e.message}")
+        }
     }
 }

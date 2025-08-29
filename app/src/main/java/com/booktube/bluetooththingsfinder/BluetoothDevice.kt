@@ -4,7 +4,7 @@ data class BluetoothDevice(
     val name: String,
     val address: String,
     val rssi: Int,
-    val deviceType: DeviceType = DeviceType.BLE,
+    val deviceType: com.booktube.bluetooththingsfinder.model.DeviceType = com.booktube.bluetooththingsfinder.model.DeviceType.BLE,
     val lastSeen: Long = System.currentTimeMillis(),
     // Major device class from android.bluetooth.BluetoothClass (if available for Classic devices)
     val bluetoothClassMajor: Int? = null,

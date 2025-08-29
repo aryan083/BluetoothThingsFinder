@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark theme colors -->
+    <style name="Theme.BluetoothThingsFinder" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Primary colors -->
+        <item name="colorPrimary">@color/primary_light</item>
+        <item name="colorPrimaryVariant">@color/primary</item>
+        <item name="colorOnPrimary">@color/black</item>
+        
+        <!-- Secondary colors -->
+        <item name="colorSecondary">@color/secondary_light</item>
+        <item name="colorSecondaryVariant">@color/secondary</item>
+        <item name="colorOnSecondary">@color/black</item>
+        
+        <!-- Background and surface colors -->
+        <item name="android:colorBackground">@color/background_dark</item>
+        <item name="colorSurface">@color/surface_dark</item>
+        <item name="colorOnSurface">@color/on_surface</item>
+        <item name="colorSurfaceVariant">@color/surface_variant_dark</item>
+        <item name="colorOnSurfaceVariant">@color/on_surface_variant</item>
+        
+        <!-- Status bar and navigation bar -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        
+        <!-- Text colors -->
+        <item name="android:textColorPrimary">@color/on_surface</item>
+        <item name="android:textColorSecondary">@color/on_surface_variant</item>
+        
+        <!-- Card view style -->
+        <item name="cardViewStyle">@style/Widget.App.CardView.Dark</item>
+    </style>
+    
+    <!-- Dark theme card view style -->
+    <style name="Widget.App.CardView.Dark" parent="Widget.Material3.CardView.Filled">
+        <item name="cardBackgroundColor">@color/surface_variant_dark</item>
+        <item name="cardForegroundColor">@color/on_surface</item>
+        <item name="strokeColor">@color/outline_variant</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="cardElevation">4dp</item>
+    </style>
+    
+    <!-- Navigation view style for dark theme -->
+    <style name="Widget.App.NavigationView" parent="Widget.Material3.NavigationView">
+        <item name="itemTextColor">?attr/colorOnSurfaceVariant</item>
+        <item name="itemIconTint">?attr/colorOnSurfaceVariant</item>
+        <item name="itemRippleColor">@color/ripple_dark</item>
+        <item name="android:background">@color/surface_dark</item>
+    </style>
+    
+    <!-- Chip style for dark theme -->
+    <style name="Widget.App.Chip.Dark" parent="Widget.Material3.Chip.Assist">
+        <item name="chipBackgroundColor">@color/surface_variant_dark</item>
+        <item name="chipStrokeColor">@color/outline_variant</item>
+        <item name="chipSurfaceColor">@color/surface_variant_dark</item>
+        <item name="chipMinHeight">32dp</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.App.SmallComponent</item>
+    </style>
+</resources>
