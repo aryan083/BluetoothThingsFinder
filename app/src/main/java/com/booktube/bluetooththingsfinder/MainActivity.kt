@@ -3,6 +3,7 @@ package com.booktube.bluetooththingsfinder
 import android.Manifest
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
+import android.bluetooth.BluetoothClass
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -158,6 +159,7 @@ fun MainScreen(
 ) {
     val devices by bluetoothScanner.devices.collectAsState()
     val isScanning by bluetoothScanner.isScanning.collectAsState()
+    val favorites by bluetoothScanner.favorites.collectAsState()
     val currentDirection by directionIndicator.currentDirection.collectAsState()
     var selectedTab by remember { mutableStateOf(0) }
     var selectedDevice by remember { mutableStateOf<BluetoothDevice?>(null) }
@@ -233,11 +235,13 @@ fun MainScreen(
                 isScanning = isScanning,
                 directionIndicator = directionIndicator,
                 bluetoothScanner = bluetoothScanner,
+                favorites = favorites,
                 onDeviceClick = { device -> selectedDevice = device }
             )
             1 -> FavoritesTab(
                 bluetoothScanner = bluetoothScanner,
                 directionIndicator = directionIndicator,
+                favorites = favorites,
                 onDeviceClick = { device -> selectedDevice = device }
             )
         }
@@ -259,10 +263,13 @@ fun NearbyDevicesTab(
     isScanning: Boolean,
     directionIndicator: DirectionIndicator,
     bluetoothScanner: BluetoothScanner? = null,
+    favorites: List<BluetoothDevice> = emptyList(),
     onDeviceClick: (BluetoothDevice) -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 12.dp)
     ) {
         // Refresh button
         if (!isScanning && devices.isNotEmpty()) {
@@ -318,13 +325,16 @@ fun NearbyDevicesTab(
             }
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxHeight()
+                modifier = Modifier.fillMaxHeight(),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(devices) { device ->
+                items(devices, key = { it.address }) { device ->
                     DeviceItem(
                         device = device,
                         directionIndicator = directionIndicator,
                         bluetoothScanner = bluetoothScanner,
+                        favorites = favorites,
                         onDeviceClick = onDeviceClick
                     )
                 }
@@ -337,11 +347,10 @@ fun NearbyDevicesTab(
 fun FavoritesTab(
     bluetoothScanner: BluetoothScanner,
     directionIndicator: DirectionIndicator,
+    favorites: List<BluetoothDevice>,
     onDeviceClick: (BluetoothDevice) -> Unit
 ) {
-    val favoriteDevices by remember { mutableStateOf(bluetoothScanner.getFavoriteDevices()) }
-    
-            if (favoriteDevices.isEmpty()) {
+    if (favorites.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -371,13 +380,16 @@ fun FavoritesTab(
         }
     } else {
         LazyColumn(
-            modifier = Modifier.fillMaxHeight()
+            modifier = Modifier.fillMaxHeight(),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(favoriteDevices) { device ->
+            items(favorites, key = { it.address }) { device ->
                 DeviceItem(
                     device = device,
                     directionIndicator = directionIndicator,
                     bluetoothScanner = bluetoothScanner,
+                    favorites = favorites,
                     onDeviceClick = onDeviceClick
                 )
             }
@@ -390,6 +402,7 @@ fun DeviceItem(
     device: BluetoothDevice,
     directionIndicator: DirectionIndicator,
     bluetoothScanner: BluetoothScanner? = null,
+    favorites: List<BluetoothDevice> = emptyList(),
     onDeviceClick: (BluetoothDevice) -> Unit
 ) {
     val directionArrow = directionIndicator.getDirectionArrow(device.rssi)
@@ -401,9 +414,9 @@ fun DeviceItem(
     }
     
     val distanceEstimate = DistanceCalculator.estimateDistance(device.rssi)
-    val isFavorite = bluetoothScanner?.let { scanner ->
-        remember { mutableStateOf(scanner.getFavoriteDevices().any { it.address == device.address }) }
-    } ?: remember { mutableStateOf(false) }
+    val isFavorite by remember(favorites, device.address) {
+        mutableStateOf(favorites.any { it.address == device.address })
+    }
     
     // Generate a better device name
     val deviceName = remember(device.name, device.address) {
@@ -424,7 +437,7 @@ fun DeviceItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 4.dp)
+            .padding(horizontal = 8.dp)
             .clickable { onDeviceClick(device) },
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(
@@ -465,29 +478,13 @@ fun DeviceItem(
                             fontSize = 16.sp
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        // Device type tag
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (device.deviceType == DeviceType.BLE) {
-                                    MaterialTheme.colorScheme.primaryContainer
-                                } else {
-                                    MaterialTheme.colorScheme.secondaryContainer
-                                }
-                            ),
-                            modifier = Modifier.padding(0.dp)
-                        ) {
-                            Text(
-                                text = device.deviceType.shortName,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (device.deviceType == DeviceType.BLE) {
-                                    MaterialTheme.colorScheme.onPrimaryContainer
-                                } else {
-                                    MaterialTheme.colorScheme.onSecondaryContainer
-                                },
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
+                        // Device type label derived from BluetoothClass major (fallback to BLE/BT)
+                        Text(
+                            text = getDeviceTypeLabel(device.bluetoothClassMajor, device.deviceType),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.padding(vertical = 2.dp)
+                        )
                     }
                     Text(
                         text = device.address,
@@ -500,23 +497,21 @@ fun DeviceItem(
                 bluetoothScanner?.let { scanner ->
                     IconButton(
                         onClick = {
-                            if (isFavorite.value) {
+                            if (isFavorite) {
                                 scanner.removeFavoriteDevice(device.address)
-                                isFavorite.value = false
                             } else {
                                 scanner.saveFavoriteDevice(device)
-                                isFavorite.value = true
                             }
                         }
                     ) {
                         Icon(
-                            imageVector = if (isFavorite.value) {
+                            imageVector = if (isFavorite) {
                                 Icons.Default.Star
                             } else {
                                 Icons.Default.StarBorder
                             },
-                            contentDescription = if (isFavorite.value) "Remove from favorites" else "Add to favorites",
-                            tint = if (isFavorite.value) Color.Yellow else Color.Gray
+                            contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
+                            tint = if (isFavorite) Color.Yellow else Color.Gray
                         )
                     }
                 }
@@ -770,6 +765,23 @@ private fun getDirectionName(degrees: Float): String {
         degrees in 135f..225f -> "South"
         degrees in 225f..315f -> "West"
         else -> "North"
+    }
+}
+
+private fun getDeviceTypeLabel(bluetoothClassMajor: Int?, fallbackType: DeviceType): String {
+    return when (bluetoothClassMajor) {
+        BluetoothClass.Device.Major.PHONE -> "📱 Phone"
+        BluetoothClass.Device.Major.COMPUTER -> "💻 Computer"
+        BluetoothClass.Device.Major.AUDIO_VIDEO -> "🎧 Audio/Video"
+        BluetoothClass.Device.Major.PERIPHERAL -> "⌨️ Peripheral"
+        BluetoothClass.Device.Major.IMAGING -> "📷 Imaging"
+        BluetoothClass.Device.Major.WEARABLE -> "⌚ Wearable"
+        BluetoothClass.Device.Major.TOY -> "🧸 Toy"
+        BluetoothClass.Device.Major.HEALTH -> "🏥 Health"
+        BluetoothClass.Device.Major.NETWORKING -> "🌐 Networking"
+        BluetoothClass.Device.Major.UNCATEGORIZED -> if (fallbackType == DeviceType.BLE) "🧩 BLE Device" else "📡 BT Device"
+        null -> if (fallbackType == DeviceType.BLE) "🧩 BLE Device" else "📡 BT Device"
+        else -> "📡 Unknown Device"
     }
 }
 

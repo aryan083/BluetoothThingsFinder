@@ -28,6 +28,17 @@ class BluetoothScanner(
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
     
     private val deviceStorage = DeviceStorage(context)
+    private val _favorites = MutableStateFlow<List<BluetoothDevice>>(emptyList())
+    val favorites: StateFlow<List<BluetoothDevice>> = _favorites.asStateFlow()
+
+    init {
+        // Load favorites initially
+        try {
+            _favorites.value = deviceStorage.getFavoriteDevices()
+        } catch (e: Exception) {
+            Log.w("BluetoothScanner", "Failed to load favorites: ${e.message}")
+        }
+    }
     
     // BroadcastReceiver for Classic Bluetooth device discovery
     private val classicBluetoothReceiver = object : BroadcastReceiver() {
@@ -43,7 +54,10 @@ class BluetoothScanner(
                                 name = device.name ?: "Unknown Device",
                                 address = device.address,
                                 rssi = if (rssi == Short.MIN_VALUE.toInt()) -100 else rssi,
-                                deviceType = DeviceType.CLASSIC
+                                deviceType = DeviceType.CLASSIC,
+                                lastSeen = System.currentTimeMillis(),
+                                bluetoothClassMajor = try { device.bluetoothClass?.majorDeviceClass } catch (e: SecurityException) { null },
+                                bondState = try { device.bondState } catch (e: SecurityException) { 0 }
                             )
                             
                             addDeviceToList(bluetoothDevice)
@@ -63,7 +77,11 @@ class BluetoothScanner(
                 name = result.device.name ?: "Unknown Device",
                 address = result.device.address,
                 rssi = result.rssi,
-                deviceType = DeviceType.BLE
+                deviceType = DeviceType.BLE,
+                lastSeen = System.currentTimeMillis(),
+                // BLE devices often have null/0 class; include if present
+                bluetoothClassMajor = try { result.device.bluetoothClass?.majorDeviceClass } catch (e: SecurityException) { null },
+                bondState = try { result.device.bondState } catch (e: SecurityException) { 0 }
             )
             
             addDeviceToList(device)
@@ -253,15 +271,24 @@ class BluetoothScanner(
     }
     
     fun getFavoriteDevices(): List<BluetoothDevice> {
-        return deviceStorage.getFavoriteDevices()
+        return _favorites.value
     }
     
     fun saveFavoriteDevice(device: BluetoothDevice) {
-        deviceStorage.saveFavoriteDevice(device)
+        // Save a snapshot (avoid live-changing RSSI/lastSeen)
+        val snapshot = device.copy(
+            rssi = 0,
+            lastSeen = 0
+        )
+        deviceStorage.saveFavoriteDevice(snapshot)
+        // Update flow
+        _favorites.value = deviceStorage.getFavoriteDevices()
     }
     
     fun removeFavoriteDevice(deviceAddress: String) {
         deviceStorage.removeFavoriteDevice(deviceAddress)
+        // Update flow
+        _favorites.value = deviceStorage.getFavoriteDevices()
     }
     
     fun getDeviceHistory(): List<BluetoothDevice> {
