@@ -28,6 +28,7 @@ class BluetoothScanner(
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
     
     private val deviceStorage = DeviceStorage(context)
+    private var directionIndicator: DirectionIndicator? = null
     
     // BroadcastReceiver for Classic Bluetooth device discovery
     private val classicBluetoothReceiver = object : BroadcastReceiver() {
@@ -43,7 +44,11 @@ class BluetoothScanner(
                                 name = device.name ?: "Unknown Device",
                                 address = device.address,
                                 rssi = if (rssi == Short.MIN_VALUE.toInt()) -100 else rssi,
-                                deviceType = DeviceType.CLASSIC
+                                deviceType = DeviceType.detectDeviceType(
+                                    device.name ?: "Unknown Device",
+                                    device.address,
+                                    device.bluetoothClass?.majorDeviceClass
+                                )
                             )
                             
                             addDeviceToList(bluetoothDevice)
@@ -63,7 +68,11 @@ class BluetoothScanner(
                 name = result.device.name ?: "Unknown Device",
                 address = result.device.address,
                 rssi = result.rssi,
-                deviceType = DeviceType.BLE
+                deviceType = DeviceType.detectDeviceType(
+                    result.device.name ?: "Unknown Device",
+                    result.device.address,
+                    result.device.bluetoothClass?.majorDeviceClass
+                )
             )
             
             addDeviceToList(device)
@@ -76,8 +85,18 @@ class BluetoothScanner(
         }
     }
     
+    /**
+     * Set the direction indicator for enhanced device tracking
+     */
+    fun setDirectionIndicator(directionIndicator: DirectionIndicator) {
+        this.directionIndicator = directionIndicator
+    }
+    
     // Helper function to add devices to the list and handle common logic
     private fun addDeviceToList(device: BluetoothDevice) {
+        // Track device RSSI for direction guidance
+        directionIndicator?.trackDeviceRssi(device.address, device.rssi)
+        
         // Save to history
         deviceStorage.addToHistory(device)
         
@@ -111,6 +130,21 @@ class BluetoothScanner(
         _devices.value = currentDevices
         
         Log.d("BluetoothScanner", "Found ${device.deviceType.shortName} device: ${device.name} (${device.address}) RSSI: ${device.rssi}")
+    }
+    
+    /**
+     * Get detailed guidance for a specific device
+     */
+    fun getDeviceGuidance(deviceAddress: String): DeviceGuidance? {
+        val device = _devices.value.find { it.address == deviceAddress }
+        return device?.let { directionIndicator?.getDetailedGuidance(deviceAddress, it.rssi) }
+    }
+    
+    /**
+     * Get movement direction for a specific device
+     */
+    fun getDeviceMovementDirection(deviceAddress: String): MovementDirection? {
+        return directionIndicator?.getDeviceMovementDirection(deviceAddress)
     }
     
     fun startScan() {

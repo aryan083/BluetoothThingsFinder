@@ -40,6 +40,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.booktube.bluetooththingsfinder.ui.theme.BluetoothThingsFinderTheme
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabPosition
+import androidx.compose.ui.text.style.TextAlign
 
 class MainActivity : ComponentActivity() {
     private lateinit var bluetoothAdapter: BluetoothAdapter
@@ -75,6 +80,9 @@ class MainActivity : ComponentActivity() {
         bluetoothScanner = BluetoothScanner(this, bluetoothAdapter)
         directionIndicator = DirectionIndicator(this)
         
+        // Connect the direction indicator to the scanner for enhanced tracking
+        bluetoothScanner.setDirectionIndicator(directionIndicator)
+        
         setContent {
             BluetoothThingsFinderTheme {
                 Surface(
@@ -95,13 +103,15 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         directionIndicator.start()
+        // Start continuous scanning automatically
         checkPermissionsAndStartScan()
     }
     
     override fun onPause() {
         super.onPause()
         directionIndicator.stop()
-        bluetoothScanner.stopScan()
+        // Keep scanning running in background
+        // bluetoothScanner.stopScan() // Removed to keep continuous scanning
     }
     
     private fun checkPermissionsAndStartScan() {
@@ -158,75 +168,177 @@ fun MainScreen(
 ) {
     val devices by bluetoothScanner.devices.collectAsState()
     val isScanning by bluetoothScanner.isScanning.collectAsState()
-    val currentDirection by directionIndicator.currentDirection.collectAsState()
     var selectedTab by remember { mutableStateOf(0) }
     var selectedDevice by remember { mutableStateOf<BluetoothDevice?>(null) }
+    var showHelpDialog by remember { mutableStateOf(false) }
     
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = 48.dp) // Safe area for status bar
+            .background(MaterialTheme.colorScheme.surface)
     ) {
-        // Header with proper safe area
-        Text(
-            text = "Bluetooth Things Finder",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)
-        )
-        
-        // Status indicator
-//        if (isScanning) {
-//            Card(
-//                modifier = Modifier
-//                    .fillMaxWidth()
-//                    .padding(horizontal = 20.dp, vertical = 8.dp),
-//                colors = CardDefaults.cardColors(
-//                    containerColor = MaterialTheme.colorScheme.primaryContainer
-//                )
-//            ) {
-//                Row(
-//                    modifier = Modifier
-//                        .fillMaxWidth()
-//                        .padding(16.dp),
-//                    verticalAlignment = Alignment.CenterVertically
-//                ) {
-//                    Icon(
-//                        imageVector = Icons.Default.BluetoothSearching,
-//                        contentDescription = null,
-//                        tint = MaterialTheme.colorScheme.primary,
-//                        modifier = Modifier.size(24.dp)
-//                    )
-//                    Spacer(modifier = Modifier.width(12.dp))
-//                    Text(
-//                        text = "Continuously scanning for devices...",
-//                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-//                        fontWeight = FontWeight.Medium
-//                    )
-//                }
-//            }
-//        }
-        
-        // Tabs
-        TabRow(
-            selectedTabIndex = selectedTab,
-            modifier = Modifier.padding(horizontal = 20.dp)
+        // Modern top header with subtle elevation
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 1.dp
         ) {
-            Tab(
-                selected = selectedTab == 0,
-                onClick = { selectedTab = 0 },
-                text = { Text("Nearby Devices") }
-            )
-            Tab(
-                selected = selectedTab == 1,
-                onClick = { selectedTab = 1 },
-                text = { Text("Favorites") }
-            )
+            Column(
+                modifier = Modifier.padding(bottom = 8.dp)
+            ) {
+                // App title with better typography
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 60.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Bluetooth Things Finder",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    
+                    // Help button with better styling
+                    Surface(
+                        modifier = Modifier.clickable { showHelpDialog = true },
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Help,
+                            contentDescription = "Help",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(12.dp).size(20.dp)
+                        )
+                    }
+                }
+                
+                // Enhanced status indicator with better visual design
+                if (isScanning) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp),
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.08f),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Animated scanning indicator
+                            Surface(
+                                modifier = Modifier.size(32.dp),
+                                shape = MaterialTheme.shapes.small,
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                            ) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.BluetoothSearching,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.width(16.dp))
+                            
+                            Column(
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    text = "Scanning for devices",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Move around to discover nearby Bluetooth devices",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                )
+                            }
+                            
+                            // Device count with better styling
+                            Surface(
+                                shape = MaterialTheme.shapes.small,
+                                color = MaterialTheme.colorScheme.primary
+                            ) {
+                                Text(
+                                    text = "${devices.size}",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
+        // Modern tabs with better styling
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 1.dp
+        ) {
+            TabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.primary,
+                divider = {}
+            ) {
+                Tab(
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 },
+                    modifier = Modifier.padding(vertical = 8.dp)
+                ) { 
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "Nearby Devices",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = if (selectedTab == 0) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (selectedTab == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                        )
+                            }
+                }
+                Tab(
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1 },
+                    modifier = Modifier.padding(vertical = 8.dp)
+                ) { 
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "Favorites",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = if (selectedTab == 1) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (selectedTab == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+            }
+        }
         
-        // Tab content
+        // Tab content with better spacing
         when (selectedTab) {
             0 -> NearbyDevicesTab(
                 devices = devices,
@@ -251,6 +363,13 @@ fun MainScreen(
             onDismiss = { selectedDevice = null }
         )
     }
+    
+    // Help dialog
+    if (showHelpDialog) {
+        HelpDialog(
+            onDismiss = { showHelpDialog = false }
+        )
+    }
 }
 
 @Composable
@@ -261,73 +380,89 @@ fun NearbyDevicesTab(
     bluetoothScanner: BluetoothScanner? = null,
     onDeviceClick: (BluetoothDevice) -> Unit
 ) {
-    Column(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        // Refresh button
-        if (!isScanning && devices.isNotEmpty()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.End
+    if (devices.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                TextButton(
-                    onClick = { bluetoothScanner?.startScan() }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
+                // Enhanced empty state icon with better styling
+                Surface(
+                    modifier = Modifier.size(100.dp),
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.08f),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Refresh")
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (isScanning) Icons.Default.BluetoothSearching else Icons.Default.Bluetooth,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(40.dp)
+                        )
+                    }
                 }
-            }
-        }
-        
-        if (devices.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Bluetooth,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = Color.Gray
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = if (isScanning) "Scanning for devices..." else "No devices found",
-                        color = Color.Gray
-                    )
-                    if (!isScanning) {
+                
+                Spacer(modifier = Modifier.height(32.dp))
+                
+                Text(
+                    text = if (isScanning) "Looking for devices..." else "No devices found",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Text(
+                    text = if (isScanning) 
+                        "Move around to discover nearby Bluetooth devices" 
+                    else 
+                        "Make sure Bluetooth is enabled and devices are nearby",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    textAlign = TextAlign.Center
+                )
+                
+                // Additional helpful tip
+                if (!isScanning) {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Surface(
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
+                    ) {
                         Text(
-                            text = "Tap 'Scan' to find nearby Bluetooth devices",
-                            color = Color.Gray,
-                            modifier = Modifier.padding(top = 8.dp)
+                            text = "💡 Tip: Try moving to different rooms or areas",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(16.dp)
                         )
                     }
                 }
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxHeight()
-            ) {
-                items(devices) { device ->
-                    DeviceItem(
-                        device = device,
-                        directionIndicator = directionIndicator,
-                        bluetoothScanner = bluetoothScanner,
-                        onDeviceClick = onDeviceClick
-                    )
-                }
+        }
+    } else {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)
+        ) {
+            items(devices) { device ->
+                DeviceItem(
+                    device = device,
+                    directionIndicator = directionIndicator,
+                    bluetoothScanner = bluetoothScanner,
+                    onDeviceClick = onDeviceClick
+                )
             }
         }
     }
@@ -341,37 +476,76 @@ fun FavoritesTab(
 ) {
     val favoriteDevices by remember { mutableStateOf(bluetoothScanner.getFavoriteDevices()) }
     
-            if (favoriteDevices.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(),
-                contentAlignment = Alignment.Center
-            ) {
+    if (favoriteDevices.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp),
+            contentAlignment = Alignment.Center
+        ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(
-                    imageVector = Icons.Default.Bluetooth,
-                    contentDescription = null,
-                    modifier = Modifier.size(64.dp),
-                    tint = Color.Gray
-                )
-                Spacer(modifier = Modifier.height(16.dp))
+                // Enhanced empty state icon with better styling
+                Surface(
+                    modifier = Modifier.size(100.dp),
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.08f),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                    )
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(40.dp)
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(32.dp))
+                
                 Text(
                     text = "No favorite devices",
-                    color = Color.Gray
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
                 Text(
-                    text = "Tap the star icon on devices to add them to favorites",
-                    color = Color.Gray,
-                    modifier = Modifier.padding(top = 8.dp)
+                    text = "Tap the star icon on devices to add them to your favorites",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    textAlign = TextAlign.Center
                 )
+                
+                // Additional helpful tip
+                Spacer(modifier = Modifier.height(24.dp))
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
+                ) {
+                    Text(
+                        text = "💡 Tip: Favorites are saved between app sessions",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
             }
         }
     } else {
         LazyColumn(
-            modifier = Modifier.fillMaxHeight()
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)
         ) {
             items(favoriteDevices) { device ->
                 DeviceItem(
@@ -392,205 +566,185 @@ fun DeviceItem(
     bluetoothScanner: BluetoothScanner? = null,
     onDeviceClick: (BluetoothDevice) -> Unit
 ) {
-    val directionArrow = directionIndicator.getDirectionArrow(device.rssi)
-    val directionText = when (directionIndicator.getDirectionToDevice(device.rssi)) {
-        Direction.VERY_CLOSE -> "Very Close - You're almost on top of it!"
-        Direction.CLOSE -> "Close - Look around carefully"
-        Direction.MEDIUM -> "Medium distance - Scan the area"
-        Direction.FAR -> "Far - Move around to get closer"
-    }
-    
     val distanceEstimate = DistanceCalculator.estimateDistance(device.rssi)
     val isFavorite = bluetoothScanner?.let { scanner ->
         remember { mutableStateOf(scanner.getFavoriteDevices().any { it.address == device.address }) }
     } ?: remember { mutableStateOf(false) }
     
+    // Get movement direction for this device
+    val movementDirection = bluetoothScanner?.let { scanner ->
+        remember { mutableStateOf(scanner.getDeviceMovementDirection(device.address)) }
+    } ?: remember { mutableStateOf<MovementDirection?>(null) }
+    
     // Generate a better device name
     val deviceName = remember(device.name, device.address) {
         when {
             device.name.isNotBlank() && device.name != "Unknown Device" -> device.name
-            device.address.startsWith("00:00:00") -> "Smart Device"
-            device.address.startsWith("AA:BB:CC") -> "Bluetooth Speaker"
-            device.address.startsWith("FF:EE:DD") -> "Wireless Headphones"
-            device.address.startsWith("11:22:33") -> "Smart Watch"
-            device.address.startsWith("CF:97:B5") -> "Bluetooth Device"
-            device.address.startsWith("A4:C6:4F") -> "Smart Speaker"
-            device.address.startsWith("B8:27:EB") -> "Raspberry Pi"
-            device.address.startsWith("DC:A6:32") -> "Raspberry Pi"
             else -> "Device ${device.address.takeLast(4)}"
         }
     }
     
-    Card(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 4.dp)
-            .clickable { onDeviceClick(device) },
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (distanceEstimate.distance <= 1.0f) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-            } else {
-                MaterialTheme.colorScheme.surface
-            }
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onDeviceClick(device) },
+        color = MaterialTheme.colorScheme.surface,
+        shape = MaterialTheme.shapes.medium,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outline.copy(alpha = 0.08f)
         )
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+            // Enhanced device icon with better styling
+            Surface(
+                modifier = Modifier.size(56.dp),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.12f),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                )
             ) {
-                Icon(
-                    imageVector = Icons.Default.Bluetooth,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(32.dp)
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = device.deviceType.icon,
+                        fontSize = 24.sp
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.width(20.dp))
+            
+            // Enhanced device info with better typography
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                ) {
+                    Text(
+                        text = deviceName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    
+                    // Device type badge with modern styling
+                    Text(
+                        text = device.deviceType.shortName,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                }
+                
+                // Device address with subtle styling
+                Text(
+                    text = device.address,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
                 
-                Spacer(modifier = Modifier.width(16.dp))
-                
-                Column(
-                    modifier = Modifier.weight(1f)
+                // Enhanced distance and movement info with better layout
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(bottom = 4.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
+                    // Direction indicator with better styling
+                    Surface(
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                     ) {
                         Text(
-                            text = deviceName,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 16.sp
+                            text = directionIndicator.getDirectionArrow(device.rssi),
+                            fontSize = 16.sp,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        // Device type tag
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (device.deviceType == DeviceType.BLE) {
-                                    MaterialTheme.colorScheme.primaryContainer
-                                } else {
-                                    MaterialTheme.colorScheme.secondaryContainer
-                                }
-                            ),
-                            modifier = Modifier.padding(0.dp)
+                    }
+                    
+                    Spacer(modifier = Modifier.width(12.dp))
+                    
+                    // Distance information
+                    Text(
+                        text = distanceEstimate.description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    
+                    // Movement indicator with better styling
+                    movementDirection?.value?.let { movement ->
+                        Spacer(modifier = Modifier.width(12.dp))
+                        val (movementIcon, movementColor) = when (movement) {
+                            MovementDirection.GETTING_CLOSER -> "✅" to Color(0xFF4CAF50)
+                            MovementDirection.GETTING_FARTHER -> "❌" to Color(0xFFF44336)
+                            MovementDirection.STABLE -> "⏸️" to Color(0xFFFF9800)
+                            MovementDirection.UNKNOWN -> "❓" to Color(0xFF9E9E9E)
+                        }
+                        
+                        Surface(
+                            shape = MaterialTheme.shapes.small,
+                            color = movementColor.copy(alpha = 0.1f)
                         ) {
                             Text(
-                                text = device.deviceType.shortName,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (device.deviceType == DeviceType.BLE) {
-                                    MaterialTheme.colorScheme.onPrimaryContainer
-                                } else {
-                                    MaterialTheme.colorScheme.onSecondaryContainer
-                                },
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                text = movementIcon,
+                                fontSize = 14.sp,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
                             )
                         }
                     }
-                    Text(
-                        text = device.address,
-                        color = Color.Gray,
-                        fontSize = 12.sp
-                    )
                 }
-                
-                // Favorite button
-                bluetoothScanner?.let { scanner ->
-                    IconButton(
-                        onClick = {
-                            if (isFavorite.value) {
-                                scanner.removeFavoriteDevice(device.address)
-                                isFavorite.value = false
-                            } else {
-                                scanner.saveFavoriteDevice(device)
-                                isFavorite.value = true
-                            }
+            }
+            
+            // Enhanced favorite button with better styling
+            bluetoothScanner?.let { scanner ->
+                Surface(
+                    modifier = Modifier.clickable {
+                        if (isFavorite.value) {
+                            scanner.removeFavoriteDevice(device.address)
+                            isFavorite.value = false
+                        } else {
+                            scanner.saveFavoriteDevice(device)
+                            isFavorite.value = true
                         }
-                    ) {
-                        Icon(
-                            imageVector = if (isFavorite.value) {
-                                Icons.Default.Star
-                            } else {
-                                Icons.Default.StarBorder
-                            },
-                            contentDescription = if (isFavorite.value) "Remove from favorites" else "Add to favorites",
-                            tint = if (isFavorite.value) Color.Yellow else Color.Gray
-                        )
-                    }
-                }
-                
-                // Signal strength indicator
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
+                    },
+                    shape = MaterialTheme.shapes.small,
+                    color = if (isFavorite.value) {
+                        Color(0xFFFFD700).copy(alpha = 0.15f)
+                    } else {
+                        MaterialTheme.colorScheme.surface
+                    },
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        if (isFavorite.value) Color(0xFFFFD700).copy(alpha = 0.3f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                    )
                 ) {
                     Icon(
-                        imageVector = Icons.Default.SignalCellular4Bar,
-                        contentDescription = null,
-                        tint = getSignalStrengthColor(device.rssi),
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "${device.rssi} dBm",
-                        fontSize = 12.sp,
-                        color = Color.Gray
+                        imageVector = if (isFavorite.value) {
+                            Icons.Default.Star
+                        } else {
+                            Icons.Default.StarBorder
+                        },
+                        contentDescription = if (isFavorite.value) "Remove from favorites" else "Add to favorites",
+                        tint = if (isFavorite.value) Color(0xFFFFD700) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        modifier = Modifier.padding(12.dp).size(24.dp)
                     )
                 }
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Distance information
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(bottom = 4.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.LocationOn,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "${distanceEstimate.description} (~${distanceEstimate.distance}m)",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Confidence: ${(distanceEstimate.confidence * 100).toInt()}%",
-                    fontSize = 12.sp,
-                    color = Color.Gray
-                )
-            }
-            
-            // Direction indicator
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = directionArrow,
-                    fontSize = 20.sp,
-                    modifier = Modifier.padding(end = 8.dp)
-                )
-                Text(
-                    text = directionText,
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-            }
-            
-            // Last seen information
-            if (device.lastSeen > 0) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Last seen: ${formatTimeAgo(device.lastSeen)}",
-                    fontSize = 11.sp,
-                    color = Color.Gray
-                )
             }
         }
     }
@@ -603,8 +757,11 @@ fun DeviceDetailDialog(
     onDismiss: () -> Unit
 ) {
     val distanceEstimate = DistanceCalculator.estimateDistance(device.rssi)
-    val direction = directionIndicator.getDirectionToDevice(device.rssi)
-    val currentDirection = directionIndicator.currentDirection.collectAsState().value
+    
+    // Get enhanced guidance for this device
+    val deviceGuidance = remember(device.address, device.rssi) {
+        directionIndicator.getDetailedGuidance(device.address, device.rssi)
+    }
     
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -616,7 +773,7 @@ fun DeviceDetailDialog(
         },
         text = {
             Column {
-                // Distance info
+                // Distance info with enhanced guidance
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
@@ -637,12 +794,30 @@ fun DeviceDetailDialog(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
+                        
+                        deviceGuidance?.let { guidance ->
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = directionIndicator.getDirectionArrow(device.rssi),
+                                    fontSize = 20.sp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Confidence: ${(guidance.confidence * 100).toInt()}%",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                )
+                            }
+                        }
                     }
                 }
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // Direction guidance
+                // Enhanced guidance section
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
@@ -660,74 +835,143 @@ fun DeviceDetailDialog(
                         
                         Spacer(modifier = Modifier.height(8.dp))
                         
-                        when (direction) {
-                            Direction.VERY_CLOSE -> {
+                        deviceGuidance?.let { guidance ->
+                            // Movement direction indicator
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            ) {
+                                val movementIcon = when (guidance.movementDirection) {
+                                    MovementDirection.GETTING_CLOSER -> "✅"
+                                    MovementDirection.GETTING_FARTHER -> "❌"
+                                    MovementDirection.STABLE -> "⏸️"
+                                    MovementDirection.UNKNOWN -> "❓"
+                                }
                                 Text(
-                                    text = "📍 You're almost on top of it!",
-                                    fontSize = 16.sp,
+                                    text = movementIcon,
+                                    fontSize = 16.sp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = when (guidance.movementDirection) {
+                                        MovementDirection.GETTING_CLOSER -> "Getting closer - keep going!"
+                                        MovementDirection.GETTING_FARTHER -> "Moving away - try different direction"
+                                        MovementDirection.STABLE -> "Signal stable - look around"
+                                        MovementDirection.UNKNOWN -> "Movement unclear - keep moving"
+                                    },
+                                    fontSize = 14.sp,
                                     color = MaterialTheme.colorScheme.onSecondaryContainer
                                 )
-                                Text(
-                                    text = "Look around carefully - it's within 0.5 meters",
-                                    fontSize = 14.sp,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
-                                )
                             }
-                            Direction.CLOSE -> {
-                                Text(
-                                    text = "🔍 Look around carefully",
-                                    fontSize = 16.sp,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                                Text(
-                                    text = "Move slowly in a circle to find the strongest signal",
-                                    fontSize = 14.sp,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
-                                )
-                            }
-                            Direction.MEDIUM -> {
-                                Text(
-                                    text = "👀 Scan the area",
-                                    fontSize = 16.sp,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                                Text(
-                                    text = "Walk around and watch for signal strength changes",
-                                    fontSize = 14.sp,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
-                                )
-                            }
-                            Direction.FAR -> {
-                                Text(
-                                    text = "🔭 Move around to get closer",
-                                    fontSize = 16.sp,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                                Text(
-                                    text = "Start walking in any direction and monitor signal changes",
-                                    fontSize = 14.sp,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
-                                )
-                            }
-                        }
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        // Current orientation
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Navigation,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
+                            
+                            // Detailed suggestion
                             Text(
-                                text = "You're facing ${getDirectionName(currentDirection)}",
+                                text = guidance.suggestion,
                                 fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.9f),
+                                modifier = Modifier.padding(bottom = 8.dp)
                             )
+                        } ?: run {
+                            // Fallback to basic guidance
+                            val direction = directionIndicator.getDirectionToDevice(device.rssi)
+                            when (direction) {
+                                Direction.VERY_CLOSE -> {
+                                    Text(
+                                        text = "🎯 You're almost on top of it!",
+                                        fontSize = 16.sp,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                    Text(
+                                        text = "Look around carefully - it's within 0.3 meters",
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                                    )
+                                }
+                                Direction.EXTREMELY_CLOSE -> {
+                                    Text(
+                                        text = "📍 It's right here!",
+                                        fontSize = 16.sp,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                    Text(
+                                        text = "Check your immediate surroundings",
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                                    )
+                                }
+                                Direction.CLOSE -> {
+                                    Text(
+                                        text = "🔍 Look around carefully",
+                                        fontSize = 16.sp,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                    Text(
+                                        text = "Move slowly in a circle to find the strongest signal",
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                                    )
+                                }
+                                Direction.MEDIUM_CLOSE -> {
+                                    Text(
+                                        text = "👀 Scan the nearby area",
+                                        fontSize = 16.sp,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                    Text(
+                                        text = "Walk around and watch for signal changes",
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                                    )
+                                }
+                                Direction.MEDIUM -> {
+                                    Text(
+                                        text = "🔭 Scan the area",
+                                        fontSize = 16.sp,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                    Text(
+                                        text = "Walk around and watch for signal strength changes",
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                                    )
+                                }
+                                Direction.MEDIUM_FAR -> {
+                                    Text(
+                                        text = "🔎 Search wider area",
+                                        fontSize = 16.sp,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                    Text(
+                                        text = "Move around to get a better signal",
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                                    )
+                                }
+                                Direction.FAR -> {
+                                    Text(
+                                        text = "🏃 Move around to get closer",
+                                        fontSize = 16.sp,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                    Text(
+                                        text = "Start walking in any direction and monitor signal changes",
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                                    )
+                                }
+                                Direction.VERY_FAR -> {
+                                    Text(
+                                        text = "🚶 Start walking",
+                                        fontSize = 16.sp,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                    Text(
+                                        text = "The device is quite far. Start moving in any direction.",
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -763,13 +1007,5 @@ fun getSignalStrengthColor(rssi: Int): Color {
     }
 }
 
-private fun getDirectionName(degrees: Float): String {
-    return when {
-        degrees in 315f..45f -> "North"
-        degrees in 45f..135f -> "East"
-        degrees in 135f..225f -> "South"
-        degrees in 225f..315f -> "West"
-        else -> "North"
-    }
-}
+
 

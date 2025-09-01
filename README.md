@@ -1,102 +1,78 @@
 # Bluetooth Things Finder
 
-A simple Android app to locate things via Bluetooth, similar to Apple's AirTag. The app scans for nearby Bluetooth devices and helps you find them based on signal strength and direction indicators.
+A Kotlin Android application that helps you find nearby Bluetooth devices with real-time distance estimation and direction guidance.
 
 ## Features
 
-- **Bluetooth Device Scanning**: Scan for nearby Bluetooth Low Energy (BLE) devices
-- **Signal Strength Visualization**: Color-coded signal strength indicators (Green = Very Close, Red = Far)
-- **Direction Indicators**: Emoji-based direction hints to help locate devices
-- **Distance Estimation**: Approximate distance calculations based on RSSI values
-- **Compass Integration**: Built-in compass to show your current orientation
-- **Favorites System**: Save frequently used devices for quick access
-- **Device History**: Track previously found devices
-- **Vibration Feedback**: Haptic feedback when new devices are discovered
-- **Tabbed Interface**: Separate tabs for scan results and favorites
+### Core Functionality
+- **Device Scanning**: Continuously scans for both Bluetooth Classic and BLE devices
+- **Distance Estimation**: Uses RSSI (signal strength) to estimate device proximity
+- **Direction Guidance**: Provides real-time guidance to help locate devices
+- **Favorites System**: Save and manage your favorite devices
+- **Compass Integration**: Shows your current orientation for better navigation
+
+### User Interface
+- **Clean Material Design**: Modern UI with dynamic theming support
+- **Real-time Updates**: Live signal strength and distance information
+- **Movement Tracking**: Visual indicators showing if you're getting closer or farther
+- **Device Details**: Tap any device for detailed guidance and information
 
 ## How to Use
 
-### 1. Getting Started
-- Launch the app
-- Grant necessary permissions (Bluetooth, Location, Vibration)
-- Ensure Bluetooth is enabled on your device
+1. **Start Scanning**: Tap the "Scan" button to begin searching for nearby devices
+2. **View Devices**: All found devices are listed with signal strength and distance estimates
+3. **Add Favorites**: Tap the star icon to save devices to your favorites
+4. **Get Guidance**: Tap on any device to see detailed navigation instructions
+5. **Use Compass**: The compass shows your current orientation to help with navigation
 
-### 2. Finding Devices
-- Tap the "Scan" button to start searching
-- The app will scan for 10 seconds
-- Found devices are displayed with signal strength and distance information
-- Devices are automatically sorted by signal strength (strongest first)
+## Distance Indicators
 
-### 3. Understanding the Interface
-- **Compass**: Shows your current orientation (North = 0°, East = 90°, etc.)
-- **Signal Strength**: Color-coded bars indicating proximity
-- **Distance Estimates**: Approximate distance in meters with confidence levels
-- **Direction Indicators**: 
-  - 📍 Very Close: You're almost on top of it!
-  - 🔍 Close: Look around carefully
-  - 👀 Medium: Scan the area
-  - 🔭 Far: Move around to get closer
+- 🎯 **Very Close** (≤0.3m): You're almost on top of it!
+- 📍 **Extremely Close** (≤0.5m): It's right here!
+- 🔍 **Close** (≤1m): Look around carefully
+- 👀 **Medium Close** (≤2m): Scan nearby area
+- 🔭 **Medium** (≤4m): Scan the area
+- 🔎 **Medium Far** (≤8m): Search wider area
+- 🏃 **Far** (≤15m): Move around to get closer
+- 🚶 **Very Far** (>15m): Start walking in any direction
 
-### 4. Managing Favorites
-- Tap the star icon on any device to add/remove from favorites
-- Access your favorite devices in the "Favorites" tab
-- Favorites are saved between app sessions
+## Movement Tracking
 
-### 5. Tips for Better Results
-- Move around slowly while scanning
-- Keep the app open during searches
-- Signal strength can vary due to obstacles
-- Some devices may not display names
-- Use the compass to understand your orientation
+- ✅ **Getting Closer**: Signal is improving - keep going!
+- ❌ **Moving Away**: Signal is weakening - try different direction
+- ⏸️ **Signal Stable**: No significant change - look around
+- ❓ **Movement Unclear**: Not enough data - keep moving
 
 ## Technical Details
 
-- **Minimum SDK**: 24 (Android 7.0)
-- **Target SDK**: 36 (Android 14)
-- **Permissions Required**:
-  - `BLUETOOTH_SCAN`
-  - `BLUETOOTH_CONNECT`
-  - `ACCESS_FINE_LOCATION`
-  - `VIBRATE`
+### Permissions Required
+- Bluetooth permissions (BLUETOOTH, BLUETOOTH_ADMIN, BLUETOOTH_SCAN, BLUETOOTH_CONNECT)
+- Location permissions (ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION)
+- Vibration permission for feedback
 
-## How It Works
+### Supported Device Types
+- **BLE**: Bluetooth Low Energy devices (most common)
+- **BT**: Classic Bluetooth devices
 
-The app uses Bluetooth Low Energy (BLE) scanning to discover nearby devices. It measures the Received Signal Strength Indicator (RSSI) to estimate proximity and provides visual feedback through:
+### Distance Calculation
+The app uses an enhanced path loss model to estimate distance based on RSSI values, providing accuracy ranges from ±0.2m for very close devices to ±5.0m for very far devices.
 
-1. **Signal Strength Colors**: Green (close) to Red (far)
-2. **Distance Estimation**: Based on RSSI values using a simplified path loss model
-3. **Direction Indicators**: Emoji-based hints for user guidance
-4. **Compass Integration**: Uses device sensors to show orientation
+## Building the Project
 
-## Limitations
+1. Clone the repository
+2. Open in Android Studio
+3. Sync Gradle files
+4. Build and run on a device with Bluetooth support
 
-- Distance estimates are approximate and may not be accurate in all environments
-- Signal strength can be affected by obstacles, interference, and device orientation
-- Some Bluetooth devices may not be discoverable
-- Accuracy depends on the quality of your device's Bluetooth hardware
+## Requirements
 
-## Privacy & Security
+- Android API level 24+ (Android 7.0+)
+- Device with Bluetooth and Bluetooth LE support
+- Location services enabled (required for device discovery)
 
-- The app only scans for Bluetooth devices and does not connect to them
-- No personal data is transmitted or stored
-- Device addresses are stored locally for favorites and history
-- Location permission is required for Bluetooth scanning (Android requirement)
+## Notes
 
-## Troubleshooting
-
-- **No devices found**: Ensure Bluetooth is enabled and try moving around
-- **Permission errors**: Grant all requested permissions in device settings
-- **Scan failures**: Restart Bluetooth or restart the app
-- **Poor accuracy**: Move slowly and avoid obstacles
-
-## Development
-
-This app is built with:
-- Kotlin
-- Jetpack Compose
-- Android Bluetooth APIs
-- Material Design 3
-
-## License
-
-This project is open source and available under the MIT License.
+- Signal strength can vary due to obstacles and interference
+- For best accuracy, calibrate your compass outdoors first
+- Some devices may not show names but will still be detected
+- The app works best in open spaces with minimal interference
